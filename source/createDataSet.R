@@ -109,6 +109,7 @@ date <- as.Date(date)
 day <- weekdays(date)
 day <- factor(day)
 
+
 # this time variable will be used to write csv files for 9pm and 11pm
 time <- strsplit(dfTest[1], split = "\\s+")[[1]][9] %>% substring(1, 2) %>% as.integer()
 # for time values like 00.15 hrs (they belong in the 11pm category)
@@ -122,6 +123,8 @@ if(time < 5) {
 
 # create the output data frame
 op <- data.frame(IpAddress = c(1:254), Date = rep(date, 254), Day = rep(day, 254), Status = rep("Free", 254), Latency = rep("null", 254), stringsAsFactors = FALSE)
+
+# Date is thus an engineered feature.
 
 # going to run a for loop for the repetitive sets of 3 lines; total hosts active are one more than this number (i.e. Me!)
 loopTimes <- (nrow(dfTest) - 4)/3

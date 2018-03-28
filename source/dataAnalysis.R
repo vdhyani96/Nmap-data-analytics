@@ -107,7 +107,7 @@ ggplot(countFree_combi, aes(x = Day, y = count, fill = Day)) +
 # idea about the prediction as well which I'm going to do in the end.
 
 # Collecting a count of days for which the IPs were Free and active. 
-# First do for Free and later, can do in parallel for "active" >> Well, "active" is just the 
+# First do for Free and later, can do in parallel for "active". Well, "active" is just the 
 # complement of Free. Why do it separately? 
 
 

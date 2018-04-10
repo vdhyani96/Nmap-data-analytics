@@ -265,6 +265,14 @@ predProb <- predict(rf_combi, testData, type = "prob")
 # the exact situation we had in our hostel can't be recreated and so this model can't work anywhere else,
 # only for our hostel in those days. So, a predictive model, even though not helpful elsewhere, is good
 # for representational purposes on Shiny. 
+# UPDATE (10/04/18) - Just tested for a new data, DateOnly = 20 on Friday, which is never seen in the 
+# examples. RF still made a prediction and looks good enough. Just needed to create the appropriate levels
+# and the proper data types. Save the RF model for using in Shiny app.
+
+setwd("C:/Users/admin/Desktop/R/My NMAP Project/")
+saveRDS(rf_combi, "RF_final_model.rds")
+# save(rf_combi, file = "RF_final_model1.rda")
+# Now, have stored this RDS file inside the fipFinder app directory.
 
 # Will wrap this modeling part up now and take the final oversampled RF model and use it to make
 # predictions for date input in Shiny. This model will be helpful where the same hostel conditions

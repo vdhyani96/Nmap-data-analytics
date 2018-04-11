@@ -43,7 +43,9 @@ countFree_nine
 ggplot(countFree_nine, aes(x = Day, y = count, fill = Day)) +
         geom_bar(stat = "identity", alpha = 0.5) +
         ylim(0, 254) +
-        geom_text(aes(label = count), vjust = 0, size = 5)
+        geom_text(aes(label = count), vjust = 0, size = 5) +
+        geom_line(aes(group = 1)) +
+        geom_point()
 # would be nice if bars were from the top too representing the count of active IPs. (complement of "Free")
 
 
@@ -71,6 +73,9 @@ countFree_nine <- freeCounter(nineDf)
 countFree_eleven <- freeCounter(elevenDf)
 countFree_combi <- freeCounter(combi)
 
+# Only for use in shiny webapp
+write.csv(countFree_combi, "plotData.csv", row.names = FALSE)
+
 # INSIGHTS - Saturday seems to be consistently scoring higher in all the three findings. Moreover, all the 
 # days in the second half of the week (Thu, Fri, Sat) have more number of Free IPs than the first half (Mon, 
 # Tue, Wed). The first half has less Free IPs. This pattern is captured in both 9pm and 11pm data too! 
@@ -93,6 +98,7 @@ ggplot(countFree_eleven, aes(x = Day, y = count, fill = Day)) +
 # combi
 ggplot(countFree_combi, aes(x = Day, y = count, fill = Day)) + 
         geom_bar(stat = "identity", alpha = 0.5) + 
+        scale_y_continuous(limits = c(0, 254), breaks = c(pretty(1:200), 254)) +
         geom_text(aes(label = count), vjust = 0, size = 5)
 
 

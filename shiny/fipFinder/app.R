@@ -1,10 +1,12 @@
 # install.packages("shiny")
 # install.packages("rsconnect")
+# install.packages("shinythemes")
 library(shiny)
 library(dplyr)
 library(DT)
 library(caret)
 library(randomForest)
+library(shinythemes)
 
 
 # reading my final RF model
@@ -22,8 +24,17 @@ levels(testSet$Day) <- c("Sunday", "Monday", "Tuesday", "Wednesday",
 
 str(testSet)
 
+
+# Now, for the ggplot on another tab
+countFree_combi <- read.csv("plotData.csv")
+countFree_combi$Day <- factor(countFree_combi$Day, levels = countFree_combi$Day)
+
+
+
 # Define UI for application that draws a histogram
 ui <- fluidPage(
+    #themeSelector(),
+    theme = shinytheme("simplex"),
    
    # Application title
    titlePanel("Free IP Finder"),
@@ -35,7 +46,7 @@ ui <- fluidPage(
                   label = "Which date do you want the free IP addresses for?",
                   min = "2016-07-01"),     # roughly the date from which we started living in theVS
         
-        br(), br(), br(), br(), br(), br(), br(),
+        hr(), br(), br(), br(), br(), br(), br(), br(),
         wellPanel(  
         h5("Developed by ", a("Vikas Dhyani", 
                               href = "https://www.linkedin.com/in/vikas-dhyani-792704114/")),
@@ -47,8 +58,17 @@ ui <- fluidPage(
       
       # Show a plot of the generated distribution
       mainPanel(
-          h3(uiOutput(outputId = "phrase")),  
-          dataTableOutput(outputId = "IPList")
+        tabsetPanel(id = "tabspanel", type = "tabs",
+                    tabPanel(title = "Free IP",
+                              h3(uiOutput(outputId = "phrase")),  
+                              dataTableOutput(outputId = "IPList")
+                    ),
+                    tabPanel(title = "Plot",
+                             h3(uiOutput(outputId = "another_phrase")),
+                             br(),
+                             plotOutput(outputId = "weeklyPlot")
+                    )
+        )
       )
    )
 )
@@ -85,7 +105,25 @@ server <- function(input, output) {
       rownames = FALSE
     )
   })
+  
+  # got this idea from DataCamp, used only for the "select" argument
+  observeEvent(input$myDate, {
+    if(input$myDate){
+      showTab(inputId = "tabspanel", target = "Free IP", select = TRUE)
+    }
+  })
 
+  # new TAB for ggplot starts from here
+  output$another_phrase <- renderUI({
+    HTML("The pattern of average number of free IP addresses on weekly basis (out of 254)")
+  })
+  
+  output$weeklyPlot <- renderPlot({
+    ggplot(countFree_combi, aes(x = Day, y = count, fill = Day)) + 
+      geom_bar(stat = "identity", alpha = 0.5) + 
+      scale_y_continuous(limits = c(0, 254), breaks = c(pretty(1:200), 254)) +
+      geom_text(aes(label = count), vjust = 0, size = 5)
+  })
 }
 
 # Run the application 

@@ -217,6 +217,8 @@ arngd_nine <- arrange(IpFreeCount_nine, desc(daysFree))
 arngd_eleven <- arrange(IpFreeCount_eleven, desc(daysFree))
 arngd_combi <- arrange(IpFreeCount_combi, desc(daysFree))
 # IP = 226 was always FREE!!
+write.csv(arngd_combi, "freeCountTable.csv", row.names = FALSE)
+# writing this file to use on shiny app.
 
 # Display top 10 and bottom 10 for all 3
 # more likely to be free

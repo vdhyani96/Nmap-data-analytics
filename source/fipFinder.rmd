@@ -61,10 +61,6 @@ I also decided to create new features for the dataset that will help in the late
 * Status - Status of the IP address, whether free or not. If not, then it will store the MAC address of the occupying device. 
 
 For dealing with the time factor, I decided to create two datasets associated with each of the 9pm and 11pm data. Data with time component less than 10pm came under the 9pm category while any time after 10pm came under the 11pm category. With this criteria, I created a logic using a loop to read all the text files, parse them one by one and create standard datasets, one for each of the time categories. A single file was processed in the below manner.
-```{r, echo = FALSE, warning = FALSE, message = FALSE}
-# this line is not relevant to the reader hence not to be displayed
-setwd("C:\\Users\\admin\\Desktop\\R\\My NMAP Project\\Nmap 9-11pm")
-```
 
 ```{r, warning = FALSE, message = FALSE}
 # loading the libraries
@@ -74,7 +70,7 @@ library(DT)
 library(caret)
 
 # reading the file
-dfTest <- readLines("0331.txt") %>% as.data.frame()
+dfTest <- readLines("C:/Users/admin/Desktop/R/My NMAP Project/Nmap 9-11pm/0331.txt") %>% as.data.frame()
 
 # some cleaning
 dfTest <- dfTest %>% filter(!(dfTest == "")) %>% sapply(function(x) { as.character(x)})
@@ -388,18 +384,5 @@ I have deployed this final model on my shiny web app: [Free IP Finder](https://v
 
 # Final Words
 
-The system I have developed works well in this current scope. Although we can't directly verify the predictions of the model for the future examples, as the usage pattern may change and the hostel batch will change and therefore, a different set of people will start using the network, we may find that the predictions are correlated to what we found earlier in the data analysis about the most and least frequent IP addresses on different days. Moreover, the machine learning system has the capacity to accommodate well for the future examples too, provided more new examples are fed to it after the batch changes or some other major change occurs. 
-
-
-
-
-
-
-
-
-// before doing analysis on here, can show the 'head(6)' of the final dataset.
-
-// Try to make some good outlines for this report.
-// keep loading the libraries on the top
-// can mention a note that I just wrote down today in notebook (19-04-18)
+In this work, I have taken on a data analytics approach to solving the problem we used to face in our LAN and exploring the usage of the network. The system I have developed works well in this current scope. Although we can't directly verify the predictions of the model for the future examples, as the usage pattern may change and the hostel batch will change too and therefore, a different set of people will start using the network, we may find that the predictions are correlated to what we found earlier in the data analysis about the most and least frequent IP addresses on different days. Moreover, the machine learning system has the capacity to accommodate well for the future examples too, provided more new examples are fed to it after the batch changes or some other major change occurs. 
 

@@ -1,3 +1,8 @@
+## IMPORTANT (U - 16-04-2018) - I'd almost forgotten about this. When I had started collecting the data using 
+# NMAP in college in the last semester, I had thought of applying Apriori algorithm to it. It was only 
+# after I had joined JD that I taught myself these data science and R skills and finished this predictive 
+# modeling. 
+
 library(dplyr)
 library(caret)
 
@@ -264,7 +269,7 @@ predProb <- predict(rf_combi, testData, type = "prob")
 # be bad for future examples, if I had any way of knowing the actual classes. Still it doesn't matter because
 # the exact situation we had in our hostel can't be recreated and so this model can't work anywhere else,
 # only for our hostel in those days. So, a predictive model, even though not helpful elsewhere, is good
-# for representational purposes on Shiny. 
+# for representational purposes on Shiny. (UPDATE (12/04/18): Well, newer examples always help!!!)
 # UPDATE (10/04/18) - Just tested for a new data, DateOnly = 20 on Friday, which is never seen in the 
 # examples. RF still made a prediction and looks good enough. Just needed to create the appropriate levels
 # and the proper data types. Save the RF model for using in Shiny app.

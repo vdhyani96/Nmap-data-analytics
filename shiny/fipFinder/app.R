@@ -54,7 +54,7 @@ ui <- fluidPage(
         
         hr(), 
         # br(), br(), br(), br(), br(), br(), br(),
-        p("In the faraway land of Pantnagar, there is a hostel called V.S. where 
+        p("In the faraway land of Pantnagar, there is a hostel called V.S. Bhawan where 
           the B.Tech. final year lives. Everything is perfect, as if it's the 
           second paradise on earth (the first being North Korea), except for one
           thing: frequent IP conflicts. The number of IP addresses are limited on the
@@ -65,7 +65,7 @@ ui <- fluidPage(
           "),
         p("
           This Free IP Finder app is an attempt to bring justice to all those
-          who have the rightful ownership to the IP addresses and deserves a 
+          who have the rightful ownership of the IP addresses and deserves a 
           free, fast and stable internet. 
           "),
         wellPanel(  

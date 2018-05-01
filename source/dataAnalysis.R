@@ -160,8 +160,14 @@ unique(combi$Status[combi$IpAddress == 251])
 ggplot(IpFreeCount_nine, aes(x = daysFree)) +
         geom_density(stat = "density")
 
+ggplot(IpFreeCount_eleven, aes(x = daysFree)) +
+  geom_density(stat = "density")
 
+ggplot(IpFreeCount_combi, aes(x = daysFree)) +
+  geom_density(stat = "density")
 
+# [Added on 21/04/18] - From above, it is seen that majority of IP addresses were Free on a large number of
+# days, easily more than half the number of total days. 
 
 ggplot(IpFreeCount_nine, aes(x = IpAddress, y = daysFree)) +
         geom_histogram(stat = "identity") +

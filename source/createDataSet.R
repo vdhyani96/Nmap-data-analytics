@@ -124,7 +124,7 @@ if(time < 5) {
 # create the output data frame
 op <- data.frame(IpAddress = c(1:254), Date = rep(date, 254), Day = rep(day, 254), Status = rep("Free", 254), Latency = rep("null", 254), stringsAsFactors = FALSE)
 
-# Date is thus an engineered feature.
+# Date is thus an engineered feature. (U180418 - Day actually!)
 
 # going to run a for loop for the repetitive sets of 3 lines; total hosts active are one more than this number (i.e. Me!)
 loopTimes <- (nrow(dfTest) - 4)/3

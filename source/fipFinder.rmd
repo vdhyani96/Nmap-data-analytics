@@ -1,0 +1,405 @@
+---
+title: "Free IP Finder: A Data Science Application in a Local Area Network"
+author: "Vikas Dhyani"
+date: "15 April 2018"
+output:
+  html_document:
+    number_sections: true
+    toc: true
+    theme: readable
+    highlight: tango
+---
+
+# Background
+
+The work I have done in this project is actually in response to a real, computer network related problem that I as well as many of my batchmates from my undergraduate degree program faced. We lived in college accommodations, also called hostel, in which we also had the Wi-Fi facility. The whole network was a part of the bigger network at the university level, administered by the Central Computing Facility (KNS-CCF). 
+
+Our network was configured with subnet masking in such a way that we had only 254 IP addresses available on our network to connect to the internet. And the number of students staying in the hostel was also around 250, with almost everyone having at least one device that could be connected to the internet (laptop, smartphones, etc.). This, however, is not the problem itself, because not everyone was connected to the internet at the same time from all their devices, but it definitely contributed to the problem. 
+
+We also had static IP configured on our network, meaning that anyone could manually change their IP addresses at any point of time. It was not automatically assigned by a DHCP on our Wi-Fi routers. This was the primary reason of the problem. Almost no one used to stay consistently on a single IP address and kept flitting from one IP to another until they could find a *"free"* IP address. This led to problems for others who had saved that IP address on their devices and no longer could connect using it because someone else had *"occupied"* it! This eventually led everyone to be on the continuous run and be a nomad on the network. This IP conflict problem was definitely a frustrating experience for many users who, even after manually checking multiple IP addresses, couldn't find a single working IP! 
+
+## Exploring for a Solution
+
+Talking to the authorities was definitely one of the ways to sort this out, but it'd take a long time for them to understand and take any effective action, so we just let them know of the situation, but never expected any outcome from that.
+
+On the other hand, I was searching for a solution that would give me a list of free IP addresses on that instant of time, so that I wouldn't have to manually search the entire spectrum of the IP list. I tried searching for some networking utilities for this task. Eventually, I came across the [NMAP](https://nmap.org/) software, or Network Mapper, a network port scanner that could give me information about the network. When connected on the network, I could perform an ARP ping scan to get a list of IP addresses that are in use currently, and a list of MAC addresses (or devices) which are currently using those IP addresses. 
+This single command performed the task: `nmap -sP -PR 10.18.1.*`
+
+## The Data Science Angle
+
+The data that I was getting from NMAP was very valuable. It was the instantaneous detail of the network and IP statuses. I recognized that if had enough data, I could figure out a way to feed it to a Machine Learning algorithm to make predictions about which IPs will most likely be free and which ones won't be. Moreover, I would also be able to find any interesting patterns in the usage of the WLAN network by different users on different days. 
+
+# Data Gathering
+
+The thought of putting my newly acquired Machine Learning knowledge into work really got me excited. I began collecting the NMAP data daily and storing them in separate text files. I used the `clip` CMD command for that (clip for clipboard most probably). In the beginning, I gathered the data at around 9pm daily. But that was not the peak time and many users weren't on the network in that hour. So, with the expectation of capturing the usage pattern on a larger extent, I shifted the time to 11pm and continued gathering the data. For more than two months, or 66 days to be exact, I collected the network data and then stopped as I thought it would be good enough to capture the general pattern in the network. 
+
+On one occasion, I couldn't scan the network because of an unforeseen powercut in the hostel due to bad (awesome) weather. To accommodate that, I thought of creating artificial data for that specific day. 
+
+# Dataset Synthesis
+
+After collecting the NMAP output data in several text files, it was a big challenge for me to extract the specific components of interest from them and create a single dataset for further analysis. A few lines from the text files are printed for representational purposes. 
+>Starting Nmap 7.00 ( https://nmap.org ) at 2017-04-18 20:58 India Standard Time
+>Nmap scan report for 10.18.1.1
+>Host is up (0.0010s latency).
+>MAC Address: 30:B5:C2:3D:C7:F2 (Tp-link Technologies)
+>Nmap scan report for 10.18.1.2
+>Host is up (0.068s latency).
+>MAC Address: 3C:A0:67:EE:D9:CD (Unknown)
+>Nmap scan report for 10.18.1.4
+>Host is up (0.039s latency).
+>....
+
+## Reading and Parsing
+
+From the text files, I first select 4 potentially useful attributes:
+1. Date
+2. Time
+3. IP Addresses
+4. Latency
+I also decided to create new features for the dataset that will help in the later analysis and modeling processes:
+* Day - The day of the week. Good for uncovering some interesting patterns and insights. 
+* Status - Status of the IP address, whether free or not. If not, then it will store the MAC address of the occupying device. 
+
+For dealing with the time factor, I decided to create two datasets associated with each of the 9pm and 11pm data. Data with time component less than 10pm came under the 9pm category while any time after 10pm came under the 11pm category. With this criteria, I created a logic using a loop to read all the text files, parse them one by one and create standard datasets, one for each of the time categories. A single file was processed in the below manner.
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+# this line is not relevant to the reader hence not to be displayed
+setwd("C:\\Users\\admin\\Desktop\\R\\My NMAP Project\\Nmap 9-11pm")
+```
+
+```{r, warning = FALSE, message = FALSE}
+# loading the libraries
+library(dplyr)
+library(ggplot2)
+library(DT)
+library(caret)
+
+# reading the file
+dfTest <- readLines("0331.txt") %>% as.data.frame()
+
+# some cleaning
+dfTest <- dfTest %>% filter(!(dfTest == "")) %>% sapply(function(x) { as.character(x)})
+
+# extracting date, day and time
+date <- strsplit(dfTest[1], split = "\\s+")[[1]][8]
+date <- as.Date(date)
+day <- weekdays(date) %>% as.factor()
+time <- strsplit(dfTest[1], split = "\\s+")[[1]][9] %>% substring(1, 2) %>% as.integer()
+
+# creating the output data frame
+op <- data.frame(IpAddress = c(1:254), Date = rep(date, 254), Day = rep(day, 254), Status = rep("Free", 254), Latency = rep("null", 254), stringsAsFactors = FALSE)
+
+# loop for reading the latency and Statuses
+loopTimes <- (nrow(dfTest) - 4)/3
+for(i in c(1:loopTimes)) {
+  # try to write this using pipe infix operator; actually pipe is almost same as without pipe in this case (see, so many parenthesis used here also)
+  # ip <- ((dfTest[(3*i - 1)] %>% strsplit(split = "\\s+"))[[1]][5] %>% strsplit(split = "[.]"))[[1]][4]
+  ip <- strsplit((strsplit(dfTest[(3*i - 1)], split = "\\s+")[[1]][5]), split = "[.]")[[1]][4]
+  ip <- as.integer(ip)
+  
+  laten <- strsplit(dfTest[3*i], split = "\\s+")[[1]][4]
+  laten <- substring(laten, 2, nchar(laten))      # nchar() used for length of string
+  op$Latency[op$IpAddress == ip] <- laten
+  
+  mac <- strsplit(dfTest[(3*i + 1)], split = "\\s+")[[1]][3]
+  op$Status[op$IpAddress == ip] <- mac
+}
+
+# Finally, for my IP address
+mip <- strsplit((strsplit(dfTest[(nrow(dfTest) - 2)], split = "\\s+")[[1]][5]), split = "[.]")[[1]][4]
+mip <- as.integer(mip)
+op$Status[op$IpAddress == mip] <- "VIP"
+op$Latency[op$IpAddress == mip] <- "0.00s"
+```
+
+The time variable above was used to segregate the datasets into one of the two time categories. All the text files went through the same processing to result into the datasets. The datasets were then combined together on the basis of whether they belonged to 9pm data or 11pm data. 
+
+## Generating Artificial Data
+
+The missed day was also taken care of while creating the final datasets. The date for that missed dataset was 26th May. I considered it in the 9pm category and imputed it using the datasets in the same category. For imputing the `Status` variable, I used the mode of statuses on all Fridays (since, the missed day was a Friday) in the 9pm dataset. For the `Latency` variable, I used the median of latencies belonging to the specific statuses that had been imputed.
+
+```{r, eval = FALSE}
+# loading the 9pm dataset
+NineDf <- read.csv("C:/Users/admin/Desktop/R/My NMAP Project/Datasets/ninePmDataset.csv")
+
+# creating a dataframe for the missed date
+misData <- data.frame(IpAddress = c(1:254), Date = rep("2017-05-26", 254), Day = rep("Friday", 254), Status = NA, Latency = rep(-1, 254), DateOnly = rep("26", 254))
+
+# a function for computing mode
+modeFinder <- function(par) {
+  modeTable <- par %>% table() %>% sort(decreasing = TRUE) %>% data.frame()
+  modeVal <- modeTable[1, 1] %>% as.character()
+  return(modeVal)
+}
+
+# Below operation finds the mode in the 9pm dataset (NineDf) while grouping by IpAddress and Day
+modeStatus <- NineDf %>%
+              group_by(IpAddress, Day) %>% 
+              summarize(mode_Status = modeFinder(Status))
+
+misData$Status <- modeStatus$mode_Status[modeStatus$Day == "Friday"]
+
+# For latency, first finding median latency per statuses and then imputing for the selective statuses in the misData dataframe by taking inner join
+medianLatency <- NineDf %>%
+                group_by(Status) %>% 
+                summarize(median_Latency = median(Latency))
+
+misData <- inner_join(x = misData, y = medianLatency)
+misData$Latency <- misData$median_Latency
+# Now, deleting the last column
+misData <- misData[, c(1:6)]
+
+# Finally, combining the imputed data frame with the 9pm dataset
+NineDf <- rbind(NineDf, misData)
+```
+
+Final counts of datasets in the two categories become 24 for 9pm and 42 for 11pm, with the total being 66 days. At this point, I get two combined datasets that are ready for analysis. The data looks something like this:
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+NineDf <- read.csv("C:/Users/admin/Desktop/R/My NMAP Project/Datasets/ninePmDataset.csv")
+```
+
+```{r}
+head(NineDf)
+```
+
+# Data Analysis
+
+I tried to find the answers to some interesting questions in this analysis. I did the same analysis for all the three datasets, i.e. 9pm, 11pm and their combined dataset. 
+
+```{r, message = FALSE, warning = FALSE}
+elevenDf <- read.csv("C:/Users/admin/Desktop/R/My NMAP Project/Datasets/elevenPmDataset.csv")
+
+# combining both 9pm and 11pm into a single dataset
+combi <- rbind(NineDf, elevenDf)
+```
+
+## How many free IPs are available on average on each week day?
+
+I found it interesting to explore the network usage pattern across different days of the week. First, I made a function to find the average number of free IPs on different days of the week. The function first finds the count of free IPs on different days and then divides by the number of different week days in the whole data. This gives the average number of IPs per week day.
+
+```{r, message = FALSE}
+# freeCounter function
+freeCounter <- function(df) {
+  countFree <- df[df$Status == "Free", ] %>% group_by(Day) %>% summarize(count = n())
+  countDay <- df %>% group_by(Day) %>% summarize(count = n())
+  countDay$count <- countDay$count/254
+  countFree$count <- countFree$count/countDay$count
+  countFree$count <- countFree$count %>% sapply(FUN = function(x) floor(x))
+  countFree <- countFree[c(2, 6, 7, 5, 1, 3, 4), ]
+  countFree$Day <- factor(countFree$Day, levels = countFree$Day)
+  return(countFree)
+}
+```
+
+After defining the function, I ca use it for the 3 datasets and then print the results on a barplot. 
+
+```{r, message = FALSE, warning = FALSE}
+countFree_nine <- freeCounter(NineDf)
+countFree_eleven <- freeCounter(elevenDf)
+countFree_combi <- freeCounter(combi)
+
+# Print visualizations below.
+
+# 9pm
+ggplot(countFree_nine, aes(x = Day, y = count, fill = Day)) + 
+        geom_bar(stat = "identity", alpha = 0.5) +
+        scale_y_continuous(limits = c(0, 254), breaks = c(pretty(1:200), 254)) +
+        geom_text(aes(label = count), vjust = 0, size = 5)
+
+# 11pm
+ggplot(countFree_eleven, aes(x = Day, y = count, fill = Day)) + 
+        geom_bar(stat = "identity", alpha = 0.5) + 
+        scale_y_continuous(limits = c(0, 254), breaks = c(pretty(1:200), 254)) +
+        geom_text(aes(label = count), vjust = 0, size = 5)
+
+# combi
+ggplot(countFree_combi, aes(x = Day, y = count, fill = Day)) + 
+        geom_bar(stat = "identity", alpha = 0.5) + 
+        scale_y_continuous(limits = c(0, 254), breaks = c(pretty(1:200), 254)) +
+        geom_text(aes(label = count), vjust = 0, size = 5)
+
+```
+
+We can see the answer to our question in the above plots. Moreover, we also get some other important insights. As can be clearly seen from above, all the days in the second half of the week (Thu, Fri, Sat and Sun) have more number of free IPs than the first half (Mon, Tue, Wed). It is fairly consistent among all the plots, except for some deviation in the 9pm data where Sunday count seems to be a bit on the lower side. Also, we see overall less number of free IPs in case of 11pm data because this is kind of peak time as compared to 9pm. 
+
+## Which IP addresses are most frequently found free and which ones found active?
+
+This question was really important to answer. It could give an insight into which IP addresses will most likely be found free. 
+
+I first calculated the number of free status separately for all IP addresses on all days. Again, I created a little function for this so that I don't have to write redundant code for the three datasets. 
+However, here I have shown analysis only for the combined dataset, because the results are quite similar for each dataset. 
+
+```{r, message = FALSE, warning = FALSE}
+#IpFreeCounter function
+IpFreeCounter <- function(df) {
+  tempCount <- df[df$Status == "Free", ] %>% group_by(IpAddress) %>% summarize(daysFree = n())
+  temp <- data.frame(IpAddress = c(1:254))
+  temp <- left_join(temp, tempCount)
+  temp$daysFree[is.na(temp$daysFree)] <- 0
+  return(temp)
+}
+
+# using function for the combined datasets
+IpFreeCount_combi <- IpFreeCounter(combi)
+```
+
+On the basis of the results from the function, we can take a look at the IPs that are mostly free and that are mostly in use. 
+
+```{r, message = FALSE, warning = FALSE}
+IpFreeCount_combi %>% arrange(desc(daysFree)) %>% 
+      datatable(caption = "Number of days IPs found free",
+                options = list(pageLength = 10))
+```
+
+We can go one step further to see the distribution of the IP addresses with respect to the `daysFree` count. 
+
+```{r, warning = FALSE, message = FALSE}
+ggplot(IpFreeCount_combi, aes(x = daysFree)) +
+  geom_density(stat = "density")
+```
+
+In the above plot, the crest of the distribution is lying more on the right side. This means that majority of IP addresses were free on a large number of days, which is, in fact, more than half the total number of days. 
+
+## Which are the most active MAC addresses (Status) on the network, apart from "Free"?
+
+The answer to this question can give us an insight into who the people, or their machines, are that are the most active on the network, regardless of which IP addresses they are using. It would also be interesting to explore which specific IPs they use to stay the most active on the network. I won't consider the first (10.18.1.1) and the last IP addresses (10.18.1.254) in this analysis because they are reserved for special purposes and will be found active all the time with the same `Status`. Also, there is one more IP address on the network that is always found active with the same status: 10.18.1.251. I am not sure about the exact reason but it is also probably not a normal user. So, I will ignore it too. Lastly, I will always be found active on the network as well, because, at the time I am collecting the data, I myself have to be active on one of the free IPs.
+
+Like the last time, I will only use the combined dataset. To find the most active MAC addresses, I first find the count of the MAC addresses across all the days and then sort them according to their counts. 
+
+```{r, warning = FALSE, message = FALSE}
+sort(table((combi %>% group_by(Date) %>% distinct(Status))$Status), decreasing = TRUE) %>% head(15)
+```
+
+The top 3 `Status` apart from "Free" and "VIP" are the ones I talked about. They are active (almost) everyday on the same IP addresses. 
+
+```{r, warning = FALSE, message = FALSE}
+combi$IpAddress[combi$Status == "00:1A:E3:28:80:00"] %>% unique()
+combi$IpAddress[combi$Status == "3C:1E:04:24:82:0B"] %>% unique()
+combi$IpAddress[combi$Status == "30:B5:C2:3D:C7:F2"] %>% unique()
+```
+
+Apart from these, I can check the IP address pattern for the other most active users, including myself in this case.
+
+```{r, warning = FALSE, message = FALSE}
+# My IP Address pattern
+combi$IpAddress[combi$Status == "VIP"] %>% unique() %>% sort()
+
+# The other top three users
+combi$IpAddress[combi$Status == "14:2D:27:D4:73:95"] %>% unique() %>% sort()
+combi$IpAddress[combi$Status == "A0:48:1C:12:E3:D6"] %>% unique() %>% sort()
+combi$IpAddress[combi$Status == "00:71:CC:00:AA:B3"] %>% unique() %>% sort()
+```
+
+Hmm, pretty interesting! I seem to have a small list of IP addresses and it's within a short range of (114-182). In contrast, the other most active users follow a different strategy. The third person in the above list seems to be very aggressive about connecting to the network and keeps making hit and trials within a huge range of IPs until he finds a free one. The range where it actually works for him is (22-196). He uses 27 distinct IP addresses in 66 days.
+
+I will stop the data analysis at this point and move into the predictive modeling part. 
+
+# Predictive Modeling
+
+My main motivation of this project was to build a system that would be able to predict with good confidence which IP addresses will be free on a given day. Since, I already had all the data, I would just need to train a machine learning algorithm on it. 
+
+The first thing I did was to frame the problem into a binary classification problem. In order to do that, I created a new variable which stored `1` for all the "Free" statuses and `0` for the rest of the statuses which were occupied. Again I took only the combined dataset as it would provide a bigger data and more holistic nature to the modeling. 
+
+```{r, message = FALSE, warning = FALSE}
+# Convert to Binary Classification Problem.
+combi$FreeInd <- 1
+combi$FreeInd[combi$Status != "Free"] <- 0
+
+# class distribution
+table(as.factor(combi$FreeInd))     # 0 - 6133, 1 - 10631
+
+# convert some variables to factor
+toFactor <- c("Day", "Status", "FreeInd")
+combi[toFactor] <- lapply(combi[toFactor], as.factor)
+```
+
+I tried several classification models from the caret package and found **KNN** and **Random Forest** to be most promising on the basis of their performance on the held-out validation set. So, I will show the process of modeling for those two models only. 
+
+```{r, message = FALSE, warning = FALSE}
+# Stratified sampling
+set.seed(21)
+trainIndex <- createDataPartition(combi$FreeInd, p = 0.8, list = FALSE)
+combi_train <- combi[trainIndex, ]
+combi_test <- combi[-trainIndex, ]
+
+# 1. KNN
+knn_model <- train(FreeInd ~ IpAddress + Day + DateOnly, data = combi_train,
+                    method = "knn")
+
+# 2. RF
+rf_model <- train(x = combi_train[, c(1, 3, 6)], y = combi_train$FreeInd,
+                   method = "rf")
+
+# And now, the test...
+pred1 <- predict(knn_model, combi_test)
+pred2 <- predict(rf_model, combi_test)
+confusionMatrix(pred1, combi_test$FreeInd) # 0.6244
+confusionMatrix(pred2, combi_test$FreeInd) # 0.6163
+```
+
+These models can definitely perform better. What I see from the confusion matrix is that a big number of data points labelled as`0` are misclassified as `1`. There seems to be a bias towards the class `1` which stems from the fact that there is some amount of class imbalance between the two classes in the training data. I will implement a simple random oversampling method for the minority class to offset this imbalance and then re-run the training process.
+
+```{r, message = FALSE, warning = FALSE}
+# Random Oversampling
+allZeros <- combi[combi$FreeInd == '0', ]
+temp <- createDataPartition(allZeros$Day, p = 0.4, list = FALSE)
+temp1 <- allZeros[temp, ]
+# adding the above to the combi dataset
+combi_overSampled <- combi
+combi_overSampled <- rbind(combi_overSampled, temp1)
+
+# Class distribution
+table(combi_overSampled$FreeInd)
+```
+
+Now, both the classes seem comparable in size. It is time to train the two models once again and see the improved performance. 
+
+```{r, message = FALSE, warning = FALSE}
+set.seed(21)
+trainIndex <- createDataPartition(combi_overSampled$FreeInd, p = 0.8, list = FALSE)
+combi_train <- combi_overSampled[trainIndex, ]
+combi_test <- combi_overSampled[-trainIndex, ]
+
+# 1. KNN
+knn_model2 <- train(FreeInd ~ IpAddress + Day + DateOnly, data = combi_train,
+                    method = "knn")
+
+# 2. RF
+rf_model2 <- train(x = combi_train[, c(1, 3, 6)], y = combi_train$FreeInd,
+                   method = "rf")
+
+# And now, the test...
+pred21 <- predict(knn_model2, combi_test)
+pred22 <- predict(rf_model2, combi_test)
+confusionMatrix(pred21, combi_test$FreeInd) # 0.5959
+confusionMatrix(pred22, combi_test$FreeInd) # 0.6833
+```
+
+The results are pretty cool, especially in the case of random forest. Not only has the accuracy improved by random oversampling, but the misclassification rate has improved too as can be seen from the confusion matrix. One last time, I will retrain this random forest model with all the examples available and then save the model. 
+```{r, message = FALSE, warning = FALSE}
+set.seed(21)
+rf_final <- train(x = combi_overSampled[, c(1, 3, 6)], y = combi_overSampled$FreeInd,
+                   method = "rf")
+
+# saving the final model
+saveRDS(rf_final, "RF_final.rds")
+```
+
+I have deployed this final model on my shiny web app: [Free IP Finder](https://vdhyani.shinyapps.io/fipFinder/). It takes input as any date that the user provides and displays the probability of all the IP addresses being free on that date. 
+
+# Final Words
+
+The system I have developed works well in this current scope. Although we can't directly verify the predictions of the model for the future examples, as the usage pattern may change and the hostel batch will change and therefore, a different set of people will start using the network, we may find that the predictions are correlated to what we found earlier in the data analysis about the most and least frequent IP addresses on different days. Moreover, the machine learning system has the capacity to accommodate well for the future examples too, provided more new examples are fed to it after the batch changes or some other major change occurs. 
+
+
+
+
+
+
+
+
+// before doing analysis on here, can show the 'head(6)' of the final dataset.
+
+// Try to make some good outlines for this report.
+// keep loading the libraries on the top
+// can mention a note that I just wrote down today in notebook (19-04-18)
+
